@@ -1,6 +1,7 @@
 from tornado.httpclient import AsyncHTTPClient
 from tornado import gen
-from tornado.escape import url_escape
+from tornado.httputil import url_concat
+from tornado.escape import url_escape, json_decode
 from bs4 import BeautifulSoup
 import urllib.parse
 import pandas as pd
@@ -40,25 +41,82 @@ class NCEPParser(BaseParser):
             response = yield self.client.fetch(url)
             soup = BeautifulSoup(response.body, 'html.parser')
             row_count = 0
-            header = []
+            #header = []
             data = []
             for tr in soup.find_all('tr'):
                 if not row_count:
-                    for th in tr.find_all('th'):
-                        header.append(th.text)
+                    #for th in tr.find_all('th'):
+                        #header.append(th.text)
                     row_count += 1
                 else:
-                    r = []
-                    url_parsed = urllib.parse.urlparse(tr.find_all('td')[12].a["href"])
-                    print(urllib.parse.parse_qs(url_parsed.query))
-                    for i, td in enumerate(tr.find_all('td')):
-                        r.append(td.text)
+
+                    url_parsed = urllib.parse.urlparse(urllib.parse.unquote(tr.find_all('td')[12].a["href"]))
+                    r = urllib.parse.parse_qs(url_parsed.query)
+                    for k in r:
+                        r[k] = r[k][0]
+                    #for i, td in enumerate(tr.find_all('td')):
+                        #r.append(td.text)
 
                     data.append(r)
-            df.append(pd.DataFrame(data, columns=header))
+            df.append(pd.DataFrame(data))
 
             yield gen.sleep(1)
         df = pd.concat(df, ignore_index=True)
-        df.to_csv("test.txt", sep="\t", index=False)
-        raise gen.Return(body)
+        raise gen.Return(df)
+
+
+class BioMartParser(BaseParser):
+    def __init__(self, url, agents):
+        super().__init__(url, agents)
+
+
+
+
+    @gen.coroutine
+    def get_marts(self):
+        response = yield self.client.fetch(self.url + "/martservice/marts.json")
+        raise gen.Return(json_decode(response.body))
+
+
+    @gen.coroutine
+    def get_datasets(self, dataset):
+        response = yield self.client.fetch(url_concat(self.url + "/martservice/datasets.json", {"config": dataset}))
+        raise gen.Return(json_decode(response.body))
+
+    @gen.coroutine
+    def get_all_filters(self):
+        marts = yield self.get_marts()
+        result = {}
+        for mart in marts:
+            datasets = yield self.get_datasets(mart["name"])
+            result[mart["name"]] = {}
+            for dataset in datasets:
+                filters = yield self.get_filters(dataset["name"], mart["name"])
+                result[mart["name"]][dataset["name"]] = pd.DataFrame(filters)
+        raise gen.Return(json_decode(result))
+
+    @gen.coroutine
+    def get_filters(self, dataset, config):
+        filters = yield self.client.fetch(
+            url_concat(self.url + "/martservice/filters.json", {"datasets": dataset, "config": config}))
+        raise gen.Return(json_decode(filters.body))
+
+    @gen.coroutine
+    def get_attributes(self, dataset, config):
+        attributes = yield self.client.fetch(
+            url_concat(self.url + "/martservice/attributes.json", {"datasets": dataset, "config": config}))
+        raise gen.Return(json_decode(attributes.body))
+
+    @gen.coroutine
+    def get_all_attributes(self):
+        marts = yield self.get_marts()
+        result = {}
+        for mart in marts:
+            datasets = yield self.get_datasets(mart["name"])
+            result[mart["name"]] = {}
+            for dataset in datasets:
+                attributes = yield self.get_attributes(dataset["name"], mart["name"])
+                result[mart["name"]][dataset["name"]] = pd.DataFrame(attributes)
+        raise gen.Return(result)
+
 
