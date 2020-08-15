@@ -1,0 +1,5 @@
+key~species
+1~Human
+2~Drosophila melanogaster
+3~Mouse
+4~Arabidopsis thalliana

@@ -1,0 +1,6 @@
+key	created	name	description
+1	2017-10-16 12:24:09.130548	uORF	A sPEP that encoded from an upstream open reading frame in a transcript.
+2	2017-10-16 12:24:09.130548	oORF	A sPEP that encoded from a main coding sequence in a transcript.
+3	2017-10-16 12:24:09.130548	dORF	A sPEP that encoded from a downstream open reading frame in a transcript.
+4	2017-10-16 12:24:09.130548	AltORF	A sPEP that encoded from the non-canonical +2/ or +3 open reading frame in a transcript.
+5	2017-10-16 12:24:09.130548	ncRNA	A sPEP that encoded from a non-coding RNA transcript.
